@@ -22,7 +22,6 @@ float resolution = 64;
 float ms = 0;
 unsigned long prevEncoderValue = 0;
 int encoderValue = 0;
-
 unsigned long prevTime = 0;
 
 //CONTROL
@@ -50,12 +49,16 @@ int botonaltaY = 30;
 //DIRECCION
 int joystickY = A0;
 
+//LIMITSWITCH
+int limitswitchY = 46; 
+
 //VOIDS
 void velocidadBaja();
 void velocidadMedia();
 void velocidadAlta();
 void direccionY();
 void encoderReading();
+void fincarreraY();
 
 
 void setup() {
@@ -69,6 +72,7 @@ void setup() {
   pinMode(botonmediaY, INPUT);
   pinMode(botonaltaY, INPUT);
   pinMode(joystickY, INPUT);
+  pinMode(limitswitchY, INPUT);
 
   digitalWrite(L_EN, HIGH);
   digitalWrite(R_EN, HIGH);
@@ -76,6 +80,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(ENCA), encoderReading, RISING);
   lcd.init();
   lcd.backlight();
+  lcd.clear();
   lcd.setCursor(3,0);
   lcd.print("GripperGrabber");
 }
@@ -101,15 +106,21 @@ void loop() {
     velocidadMedia();
   }else if (digitalRead(botonbajaY) == LOW && digitalRead(botonmediaY) == LOW && digitalRead(botonaltaY) == HIGH){
     velocidadAlta();
-  } else{
+  } else if(digitalRead(botonbajaY) == LOW && digitalRead(botonmediaY) == LOW && digitalRead(botonaltaY) == LOW){
+    lcd.setCursor(0,3);
+    lcd.print("                    ");
+  }else if(digitalRead(botonbajaY) == LOW && digitalRead(botonmediaY) == LOW && digitalRead(botonaltaY) == LOW){
+    lcd.setCursor(0,3);
+    lcd.print("                    ");
+  }else{
   }
 }
 
 //VOID VELOCIDAD BAJA
 void velocidadBaja(){
   lcd.setCursor(1,2);
-  lcd.print("Velocidad baja");
-  lcd.clear();
+  lcd.print("Velocidad media");
+
   e = bajosetpoint - ms;
   u = kp*e + 0.01*ki*e;
 
@@ -125,8 +136,7 @@ void velocidadBaja(){
 //VOID VELOCDIAD MEDIA
 void velocidadMedia(){
   lcd.setCursor(1,2);
-  lcd.print("Velocidad media");
-  lcd.clear();
+  lcd.print("Velocidad baja");
   e = mediosetpoint - ms;
   u = kp*e + 0.01*ki*e;
 
@@ -142,8 +152,7 @@ void velocidadMedia(){
 //VOID VELOCDIAD ALTA
 void velocidadAlta(){
   lcd.setCursor(1,2);
-  lcd.print("Velocidad alta");
-  lcd.clear();
+  lcd.print("Velocidad alta ");
   e = altosetpoint - ms;
   u = kp*e + 0.01*ki*e;
 
@@ -159,24 +168,22 @@ void direccionY(){
   int joystickYValue = analogRead(joystickY);
   if (joystickYValue < 400) {
     lcd.setCursor(1,3);
-    lcd.print("Subiendo...");
-    lcd.clear();
+    lcd.print("Subiendo...      ");
     analogWrite(RPWM, pwm);
     analogWrite(LPWM, 0);
   } else if (joystickYValue > 600) {
       lcd.setCursor(1,3);
-      lcd.print("Bajando...");
-      lcd.clear();
+      lcd.print("Bajando...      ");
       analogWrite(RPWM, 0);
       analogWrite(LPWM, pwm);
   } else {
       lcd.setCursor(1,3);
-      lcd.print("Sin direccion...");
-      lcd.clear();
+      lcd.print("                 ");;
       analogWrite(RPWM, 0);
       analogWrite(LPWM, 0);
   }
 }
+
 
 void encoderReading(){
   pulsos++;
