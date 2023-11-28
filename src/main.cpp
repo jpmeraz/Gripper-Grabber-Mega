@@ -76,15 +76,11 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(ENCA), encoderReading, RISING);
   lcd.init();
   lcd.backlight();
-  lcd.clear();
+  lcd.setCursor(3,0);
+  lcd.print("GripperGrabber");
 }
 
 void loop() {
-  lcd.setCursor(0,4);
-  lcd.print("Bienvenidos");
-  lcd.clear();
-  lcd.setCursor(1,0);
-  lcd.print("Gripper Grabber");
   currT = millis();
   deltaT = (float(currT - prevTime))/(1.0e3);
   prevTime = currT;
@@ -111,7 +107,7 @@ void loop() {
 
 //VOID VELOCIDAD BAJA
 void velocidadBaja(){
-  lcd.setCursor(2,1);
+  lcd.setCursor(1,2);
   lcd.print("Velocidad baja");
   lcd.clear();
   e = bajosetpoint - ms;
@@ -128,7 +124,7 @@ void velocidadBaja(){
 
 //VOID VELOCDIAD MEDIA
 void velocidadMedia(){
-  lcd.setCursor(2,1);
+  lcd.setCursor(1,2);
   lcd.print("Velocidad media");
   lcd.clear();
   e = mediosetpoint - ms;
@@ -145,7 +141,7 @@ void velocidadMedia(){
     
 //VOID VELOCDIAD ALTA
 void velocidadAlta(){
-  lcd.setCursor(2,1);
+  lcd.setCursor(1,2);
   lcd.print("Velocidad alta");
   lcd.clear();
   e = altosetpoint - ms;
@@ -162,19 +158,19 @@ void velocidadAlta(){
 void direccionY(){
   int joystickYValue = analogRead(joystickY);
   if (joystickYValue < 400) {
-    lcd.setCursor(3,1);
+    lcd.setCursor(1,3);
     lcd.print("Subiendo...");
     lcd.clear();
     analogWrite(RPWM, pwm);
     analogWrite(LPWM, 0);
   } else if (joystickYValue > 600) {
-      lcd.setCursor(3,1);
+      lcd.setCursor(1,3);
       lcd.print("Bajando...");
       lcd.clear();
       analogWrite(RPWM, 0);
       analogWrite(LPWM, pwm);
   } else {
-      lcd.setCursor(3,1);
+      lcd.setCursor(1,3);
       lcd.print("Sin direccion...");
       lcd.clear();
       analogWrite(RPWM, 0);
