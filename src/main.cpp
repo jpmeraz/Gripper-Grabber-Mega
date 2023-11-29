@@ -63,7 +63,7 @@ float bajosetpoint = 0.02;
 const int velbaja = 60;
 const int PPRbaja = 150;
 const int velalta = 20;
-const int PPRalta = 200; 
+const int PPRalta = 200;
 
 // FLAGS INTERNAS
 bool reset_needed = false;
@@ -72,7 +72,6 @@ bool reset_needed = false;
 void direccionY(int pwm);
 void direccionX(int velocidad, int PPR);
 void control_velocidades(float setpoint, String lcd_print);
-void stepper(bool giro, int velocidad, int PPR);
 float rpm();
 void encoderReading();
 void emergencia();
@@ -112,7 +111,6 @@ void loop()
   lcd.setCursor(3, 0);
   lcd.print("GripperGrabber");
 
-
   // Al oprimir el botón de reset se inicia la secuencia correspondiente.
   if (digitalRead(reset) == HIGH)
   {
@@ -127,18 +125,18 @@ void loop()
 
     // VELOCIDADES
     // Para seleccionar la velocidad a utilizar se verifica el estado de todos los botones y solamente se activa un estado al tener un solo botón presionado.
-    if (digitalRead(botonbajaY) && !digitalRead(botonmediaY) && !digitalRead(botonaltaY) && !digitalRead(botonlaltaX) && !digitalRead(botonbajaY))
+    if (digitalRead(botonbajaY) && !digitalRead(botonmediaY) && !digitalRead(botonaltaY) && !digitalRead(botonlaltaX) && !digitalRead(botonbajaX))
     {
       // Velocidad baja del eje Y
       control_velocidades(bajosetpoint, "Velocidad baja");
       Serial.println("Velocidad baja");
     }
-    else if (!digitalRead(botonbajaY) && digitalRead(botonmediaY) && !digitalRead(botonaltaY) && !digitalRead(botonlaltaX) && !digitalRead(botonbajaY))
+    else if (!digitalRead(botonbajaY) && digitalRead(botonmediaY) && !digitalRead(botonaltaY) && !digitalRead(botonlaltaX) && !digitalRead(botonbajaX))
     {
       // Velocidad media del eje Y
       control_velocidades(mediosetpoint, "Velocidad media");
     }
-    else if (!digitalRead(botonbajaY) && !digitalRead(botonmediaY) && digitalRead(botonaltaY) && !digitalRead(botonlaltaX) && !digitalRead(botonbajaY))
+    else if (!digitalRead(botonbajaY) && !digitalRead(botonmediaY) && digitalRead(botonaltaY) && !digitalRead(botonlaltaX) && !digitalRead(botonbajaX))
     {
       // Velocidad alta del eje Y
       control_velocidades(altosetpoint, "Velocidad alta");
@@ -179,7 +177,6 @@ void control_velocidades(float setpoint, String lcd_print)
 {
   lcd.setCursor(1, 2);
   lcd.print(lcd_print);
-  
 
   e = setpoint - rpm();
   u = kp * e + 0.01 * ki * e;
@@ -233,18 +230,42 @@ void direccionY(int pwm)
 
 void direccionX(int velocidad, int PPR)
 {
-  int joystickXValue = analogRead(joystickX);
-  while (joystickXValue < 400 && !digitalRead(limitFin) && !reset_needed)
+  bool contador = true;
+  while (analogRead(joystickX) < 400 && !digitalRead(limitFin) && !reset_needed)
   {
-      stepper(false, velocidad, PPR);
+    if (contador)
+    {
       lcd.setCursor(1, 3);
       lcd.print("Moviendo a la izq.");
+    }
+    contador = false;
+    digitalWrite(direccion_stepper, false);
+    for (int i = 0; i < PPR; i++)
+    {
+      digitalWrite(pulsos_stepper, HIGH);
+      delayMicroseconds(velocidad);
+      digitalWrite(pulsos_stepper, LOW);
+      delayMicroseconds(velocidad);
+    }
   }
-  while (joystickXValue > 600 && !digitalRead(limitInicio) && !reset_needed)
+  contador = true;
+  while (analogRead(joystickX) > 600 && !digitalRead(limitInicio) && !reset_needed)
   {
-      stepper(true, velocidad, PPR);
+    if (contador)
+    {
       lcd.setCursor(1, 3);
       lcd.print("Moviendo a la der.");
+    }
+    contador = false;
+    // stepper(true, velocidad, PPR);
+    digitalWrite(direccion_stepper, true);
+    for (int i = 0; i < PPR; i++)
+    {
+      digitalWrite(pulsos_stepper, HIGH);
+      delayMicroseconds(velocidad);
+      digitalWrite(pulsos_stepper, LOW);
+      delayMicroseconds(velocidad);
+    }
   }
 }
 
@@ -279,7 +300,7 @@ void reseteo()
   }
   while (!digitalRead(limitInicio))
   {
-    stepper(true, velbaja, PPRbaja);
+    Serial.println(2);
   }
   reset_needed = false;
   lcd.clear();
@@ -303,18 +324,3 @@ float rpm()
   return ms;
 }
 
-void stepper(bool giro, int velocidad, int PPR)
-{
-  // Se utilizan parámetros deentrada para determinar la orientacion de giro y velocidad.
-  // El parámetro giro consta de un valor booleano, donde 1 (HIGH) es girar a la derecha y 0 (LOW) a la izquierda.
-  digitalWrite(direccion_stepper, giro);
-  for (int i = 0; i < PPR; i++)
-  {
-    digitalWrite(pulsos_stepper, HIGH);
-    delayMicroseconds(velocidad);
-    digitalWrite(pulsos_stepper, LOW);
-    delayMicroseconds(velocidad);
-  }
-
-  Serial.println("Una RPM");
-}
