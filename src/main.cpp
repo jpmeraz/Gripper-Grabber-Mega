@@ -19,7 +19,7 @@ int R_EN = 8;
 volatile int pulsos = 0;
 unsigned long timeold;
 float resolution = 64;
-float ms = 0;
+//float ms = 0;
 unsigned long prevEncoderValue = 0;
 int encoderValue = 0;
 unsigned long prevTime = 0;
@@ -35,20 +35,20 @@ float integral;
 float u;
 float uprev;
 float power;
-//int pwm;
+// int pwm;
 
-float altosetpoint = 0.06;
-float mediosetpoint = 0.10;
-float bajosetpoint = 0.05;
+float altosetpoint = 0.12;
+float mediosetpoint = 0.04;
+float bajosetpoint = 0.02;
 
 // BOTONES Y
-int botonbajaY = 29;
-int botonmediaY = 25;
-int botonaltaY = 30;
+#define botonbajaY 25
+#define botonmediaY 29
+#define botonaltaY 30
 // BOTON PARO
-int paro = 18;
+#define paro 18
 // BOTON RESET
-int reset = 2;
+#define reset 2
 
 // DIRECCION
 int joystickY = A0;
@@ -60,10 +60,9 @@ int limitswitchY = 46;
 bool reset_needed = false;
 
 // VOIDS
-void velocidadBaja();
-void velocidadMedia();
-void velocidadAlta();
-void direccionY();
+void direccionY(int pwm);
+void control_velocidades(float setpoint, String lcd_print);
+float rpm();
 void encoderReading();
 void emergencia();
 void reseteo();
@@ -101,21 +100,6 @@ void loop()
     reseteo();
   }
 
-  digitalWrite(L_EN, HIGH);
-  digitalWrite(R_EN, HIGH);
-  currT = millis();
-  deltaT = (float(currT - prevTime)) / (1.0e3);
-  prevTime = currT;
-
-  // LECTURA RPM
-  if ((millis() - prevEncoderValue) >= 10)
-  {
-    unsigned long elapsedTime = millis() - prevTime;
-    ms = float(pulsos * 0.04915469 / 4);
-    pulsos = 0;
-    prevEncoderValue = elapsedTime;
-  }
-
   // PARO
   // RESET
   if (reset_needed)
@@ -126,18 +110,22 @@ void loop()
   }
   else
   {
+    //SE ACTIVAN LOS ENABLES Y SE OBTIENEN LAS RPMs
+    digitalWrite(L_EN, HIGH);
+    digitalWrite(R_EN, HIGH);
+    
     // VELOCIDADES
     if (digitalRead(botonbajaY) == HIGH && digitalRead(botonmediaY) == LOW && digitalRead(botonaltaY) == LOW)
     {
-      velocidadBaja();
+      control_velocidades(bajosetpoint, "Velocidad baja");
     }
     else if (digitalRead(botonbajaY) == LOW && digitalRead(botonmediaY) == HIGH && digitalRead(botonaltaY) == LOW)
     {
-      velocidadMedia();
+      control_velocidades(mediosetpoint, "Velocidad media");
     }
     else if (digitalRead(botonbajaY) == LOW && digitalRead(botonmediaY) == LOW && digitalRead(botonaltaY) == HIGH)
     {
-      velocidadAlta();
+      control_velocidades(altosetpoint, "Velocidad alta");
     }
     else
     {
@@ -147,16 +135,14 @@ void loop()
 }
 
 // VOID VELOCIDAD BAJA
-void control_velocidades(int setpoint, String lcd_print)
+void control_velocidades(float setpoint, String lcd_print)
 {
   lcd.setCursor(1, 2);
   lcd.print(lcd_print);
-
-  e = setpoint - ms;
+  
+  e = setpoint - rpm();
   u = kp * e + 0.01 * ki * e;
-
   power = fabs(u);
-
   int pwm = map(power, 0, 18, 0, 254);
 
   eprev = e;
@@ -164,60 +150,7 @@ void control_velocidades(int setpoint, String lcd_print)
   direccionY(pwm);
 }
 
-
-
-
-void velocidadBaja()
-{
-  lcd.setCursor(1, 2);
-  lcd.print("Velocidad media");
-
-  e = bajosetpoint - ms;
-  u = kp * e + 0.01 * ki * e;
-
-  power = fabs(u);
-
-  pwm = map(power, 0, 18, 0, 254);
-
-  eprev = e;
-  uprev = u;
-  direccionY();
-}
-
-// VOID VELOCDIAD MEDIA
-void velocidadMedia()
-{
-  lcd.setCursor(1, 2);
-  lcd.print("Velocidad baja");
-  e = mediosetpoint - ms;
-  u = kp * e + 0.01 * ki * e;
-
-  power = fabs(u);
-
-  pwm = map(power, 0, 18, 0, 254);
-
-  eprev = e;
-  uprev = u;
-  direccionY();
-}
-
-// VOID VELOCDIAD ALTA
-void velocidadAlta()
-{
-  lcd.setCursor(1, 2);
-  lcd.print("Velocidad alta ");
-  e = altosetpoint - ms;
-  u = kp * e + 0.01 * ki * e;
-
-  power = fabs(u);
-  pwm = map(power, 0, 18, 0, 254);
-
-  eprev = e;
-  uprev = u;
-  direccionY();
-}
-
-void direccionY()
+void direccionY(int pwm)
 {
   int joystickYValue = analogRead(joystickY);
   if (joystickYValue < 400 && digitalRead(limitswitchY) == HIGH && !reset_needed)
@@ -234,14 +167,17 @@ void direccionY()
     analogWrite(RPWM, 0);
     analogWrite(LPWM, pwm);
   }
-  else
+  else if (!limitswitchY)
   {
+    lcd.setCursor(0, 3);
+    lcd.print("Limite alcanzado...");
+  }
+  else if (reset_needed){
     lcd.setCursor(1, 3);
-    lcd.print("                 ");
+    lcd.print("Reiniciando...");
     analogWrite(RPWM, 0);
     analogWrite(LPWM, 0);
   }
-  pwm = 0;
 }
 
 void encoderReading()
@@ -255,35 +191,41 @@ void emergencia()
   {
     analogWrite(RPWM, 0);
     analogWrite(LPWM, 0);
+    reset_needed = true;
   }
-  pwm = 0;
-  reset_needed = true;
 }
 
 void reseteo()
 {
   while (digitalRead(limitswitchY) == HIGH)
   {
-    lcd.setCursor(1, 3);
-    lcd.print("Reseteando...      ");
-    e = 0.02 - ms;
-    u = kp * e + 0.01 * ki * e;
-    power = fabs(u);
-
-    pwm = map(power, 0, 18, 0, 254);
-
-    eprev = e;
-    uprev = u;
-    analogWrite(RPWM, pwm);
-    analogWrite(LPWM, 0);
+    control_velocidades(bajosetpoint, "Reiniciando...");
   }
   lcd.print("                 ");
   while (digitalRead(reset) == HIGH)
   {
     lcd.setCursor(1, 3);
-    lcd.print("Reset completo");
+    lcd.print("Reinicio completo");
     analogWrite(RPWM, 0);
     analogWrite(LPWM, 0);
   }
   reset_needed = false;
+}
+
+
+float rpm(){
+    float ms = 0.0;
+    currT = millis();
+    deltaT = (float(currT - prevTime)) / (1.0e3);
+    prevTime = currT;
+
+    // LECTURA RPM
+    if ((millis() - prevEncoderValue) >= 10)
+    {
+      unsigned long elapsedTime = millis() - prevTime;
+      ms = float(pulsos * 0.04915469 / 4);
+      pulsos = 0;
+      prevEncoderValue = elapsedTime;
+    }
+    return ms;
 }
