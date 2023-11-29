@@ -90,6 +90,8 @@ void setup()
   pinMode(botonaltaY, INPUT);
   pinMode(joystickY, INPUT);
   pinMode(limitswitchY, INPUT);
+  pinMode(limitInicio, INPUT);
+  pinMode(limitFin, INPUT);
   pinMode(reset, INPUT);
   pinMode(paro, INPUT);
   pinMode(direccion_stepper, OUTPUT);
@@ -111,13 +113,29 @@ void loop()
   lcd.setCursor(3, 0);
   lcd.print("GripperGrabber");
 
+  while (!digitalRead(paro))
+  {
+    lcd.setCursor(1, 2);
+    lcd.print("Emergencia activa");
+    lcd.setCursor(0, 1);
+    lcd.print("                    ");
+  }
+
+  if (reset_needed)
+  {
+    lcd.setCursor(0, 2);
+    lcd.print("                   ");
+    lcd.setCursor(0, 3);
+    lcd.print("  Reset necesario");
+  }
+
   // Al oprimir el botón de reset se inicia la secuencia correspondiente.
-  if (digitalRead(reset) == HIGH)
+  if (digitalRead(reset) && digitalRead(paro))
   {
     reseteo();
   }
 
-  if (!reset_needed)
+  if (!reset_needed && digitalRead(paro))
   {
     // SE ACTIVAN LOS ENABLES Y SE OBTIENEN LAS RPMs
     digitalWrite(L_EN, HIGH);
@@ -144,31 +162,26 @@ void loop()
     else if (!digitalRead(botonbajaY) && !digitalRead(botonmediaY) && !digitalRead(botonaltaY) && digitalRead(botonlaltaX) && !digitalRead(botonbajaX))
     {
       // Velocidad alta del eje X
+      lcd.setCursor(1, 2);
+      lcd.print("Velocidad alta");
       direccionX(velalta, PPRalta);
     }
     else if (!digitalRead(botonbajaY) && !digitalRead(botonmediaY) && !digitalRead(botonaltaY) && !digitalRead(botonlaltaX) && digitalRead(botonbajaX))
     {
       // Velocidad alta del eje X
+      lcd.setCursor(1, 2);
+      lcd.print("Velocidad baja");
       direccionX(velbaja, PPRbaja);
     }
     else
     {
-      // Si no se tiene seleccionado algun bóton de movimiento se borran las lineas 2,3,4 de la LCD
       lcd.setCursor(0, 1);
       lcd.print("                    ");
       lcd.setCursor(0, 2);
       lcd.print("                    ");
       lcd.setCursor(0, 3);
       lcd.print("                    ");
-      analogWrite(RPWM, 0);
-      analogWrite(LPWM, 0);
     }
-  }
-
-  if (reset_needed)
-  {
-    lcd.setCursor(0, 1);
-    lcd.print("Reset necesario");
   }
 }
 
@@ -197,6 +210,7 @@ void direccionY(int pwm)
   {
     lcd.setCursor(1, 3);
     lcd.print("Subiendo...      ");
+    Serial.println(pwm);
     analogWrite(RPWM, pwm);
     analogWrite(LPWM, 0);
   }
@@ -216,8 +230,6 @@ void direccionY(int pwm)
   {
     lcd.setCursor(1, 3);
     lcd.print("Reiniciando...");
-    analogWrite(RPWM, 0);
-    analogWrite(LPWM, 0);
   }
   else
   {
@@ -231,7 +243,7 @@ void direccionY(int pwm)
 void direccionX(int velocidad, int PPR)
 {
   bool contador = true;
-  while (analogRead(joystickX) < 400 && !digitalRead(limitFin) && !reset_needed)
+  while (analogRead(joystickX) < 400 && !digitalRead(limitInicio) && !reset_needed)
   {
     if (contador)
     {
@@ -239,25 +251,6 @@ void direccionX(int velocidad, int PPR)
       lcd.print("Moviendo a la izq.");
     }
     contador = false;
-    digitalWrite(direccion_stepper, false);
-    for (int i = 0; i < PPR; i++)
-    {
-      digitalWrite(pulsos_stepper, HIGH);
-      delayMicroseconds(velocidad);
-      digitalWrite(pulsos_stepper, LOW);
-      delayMicroseconds(velocidad);
-    }
-  }
-  contador = true;
-  while (analogRead(joystickX) > 600 && !digitalRead(limitInicio) && !reset_needed)
-  {
-    if (contador)
-    {
-      lcd.setCursor(1, 3);
-      lcd.print("Moviendo a la der.");
-    }
-    contador = false;
-    // stepper(true, velocidad, PPR);
     digitalWrite(direccion_stepper, true);
     for (int i = 0; i < PPR; i++)
     {
@@ -267,6 +260,29 @@ void direccionX(int velocidad, int PPR)
       delayMicroseconds(velocidad);
     }
   }
+  lcd.setCursor(0, 3);
+  lcd.print("                    ");
+  contador = true;
+  while (analogRead(joystickX) > 600 && !digitalRead(limitFin) && !reset_needed)
+  {
+    if (contador)
+    {
+      lcd.setCursor(1, 3);
+      lcd.print("Moviendo a la der.");
+    }
+    contador = false;
+    // stepper(true, velocidad, PPR);
+    digitalWrite(direccion_stepper, false);
+    for (int i = 0; i < PPR; i++)
+    {
+      digitalWrite(pulsos_stepper, HIGH);
+      delayMicroseconds(velocidad);
+      digitalWrite(pulsos_stepper, LOW);
+      delayMicroseconds(velocidad);
+    }
+  }
+  lcd.setCursor(0, 3);
+  lcd.print("                    ");
 }
 
 void encoderReading()
@@ -276,7 +292,6 @@ void encoderReading()
 
 void emergencia()
 {
-  while (digitalRead(paro) == LOW)
   {
     analogWrite(RPWM, 0);
     analogWrite(LPWM, 0);
@@ -323,4 +338,3 @@ float rpm()
   }
   return ms;
 }
-
