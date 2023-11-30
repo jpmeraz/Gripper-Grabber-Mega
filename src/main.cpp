@@ -226,10 +226,10 @@ void direccionY(int pwm)
     lcd.setCursor(0, 3);
     lcd.print("Limite alcanzado...");
   }
-  else if (reset_needed)
+  else if (reset_needed && digitalRead(limitswitchY))
   {
-    lcd.setCursor(1, 3);
-    lcd.print("Reiniciando...");
+    analogWrite(RPWM, pwm);
+    analogWrite(LPWM, 0);
   }
   else
   {
@@ -243,6 +243,16 @@ void direccionY(int pwm)
 void direccionX(int velocidad, int PPR)
 {
   bool contador = true;
+  while (reset_needed && !digitalRead(limitInicio)) {
+    digitalWrite(direccion_stepper, true);
+    for (int i = 0; i < PPR; i++)
+    {
+      digitalWrite(pulsos_stepper, HIGH);
+      delayMicroseconds(velocidad);        
+      digitalWrite(pulsos_stepper, LOW);
+      delayMicroseconds(velocidad);
+    }
+  }
   while (analogRead(joystickX) < 400 && !digitalRead(limitInicio) && !reset_needed)
   {
     if (contador)
@@ -283,6 +293,7 @@ void direccionX(int velocidad, int PPR)
   }
   lcd.setCursor(0, 3);
   lcd.print("                    ");
+  
 }
 
 void encoderReading()
@@ -293,29 +304,33 @@ void encoderReading()
 void emergencia()
 {
   {
-    analogWrite(RPWM, 0);
-    analogWrite(LPWM, 0);
+    digitalWrite(L_EN, LOW);
+    digitalWrite(R_EN, LOW);
+    digitalWrite(pulsos_stepper, LOW);
     reset_needed = true;
   }
 }
 
 void reseteo()
-{
-  while (digitalRead(limitswitchY) == HIGH)
+{ 
+  reset_needed = true;
+  lcd.setCursor(0, 3);
+  lcd.print("  Reset necesario");
+  while (digitalRead(limitswitchY))
   {
-    control_velocidades(bajosetpoint, "Reiniciando...");
+    control_velocidades(bajosetpoint, "Reiniciando Eje Y...");
   }
-  lcd.print("                 ");
+  while(!digitalRead(limitInicio)){
+      lcd.setCursor(0, 2);
+      lcd.print("Reiniciando Eje X...");
+      direccionX(velbaja, PPRbaja);
+  }
   while (digitalRead(reset))
   {
-    lcd.setCursor(1, 3);
-    lcd.print("Reinicio completo");
+    lcd.setCursor(0, 2);
+    lcd.print(" Reinicio completo  ");
     analogWrite(RPWM, 0);
     analogWrite(LPWM, 0);
-  }
-  while (!digitalRead(limitInicio))
-  {
-    Serial.println(2);
   }
   reset_needed = false;
   lcd.clear();
